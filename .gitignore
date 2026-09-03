@@ -1,0 +1,6 @@
+node_modules/
+dist/
+creds/
+*.p8
+*.log
+.DS_Store

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Go Live: Publish the Repo, App & Auto-Updates — Step by Step</title>
+<style>
+  :root{
+    --ink:#1a1a2e;--muted:#5b5b74;--line:#e6e6ef;--bg:#f7f7fb;--card:#fff;
+    --accent:#4f46e5;--accent-soft:#eef0ff;--green:#0f9d58;--green-soft:#e6f6ee;
+    --amber:#b7791f;--amber-soft:#fdf3e2;--code:#1e1e2e;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.6;padding:44px 20px}
+  .wrap{max-width:840px;margin:0 auto}
+  .eyebrow{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+  h1{font-size:32px;line-height:1.15;margin:8px 0 8px;letter-spacing:-.02em}
+  .sub{font-size:17.5px;color:var(--muted);margin-bottom:18px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:30px;font-size:13px}
+  .chip{padding:4px 12px;border-radius:999px;font-weight:700}
+  .chip.click{background:var(--green-soft);color:var(--green)}
+  .chip.term{background:var(--accent-soft);color:var(--accent)}
+  .chip.time{background:#eee;color:#555}
+
+  .phase{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:8px 30px 26px;margin-bottom:22px;
+    box-shadow:0 1px 2px rgba(20,20,50,.04)}
+  .phead{display:flex;align-items:center;gap:12px;padding:20px 0 6px;border-bottom:1px solid var(--line);margin-bottom:18px}
+  .pnum{width:32px;height:32px;flex:none;border-radius:9px;background:var(--accent);color:#fff;font-weight:800;
+    display:flex;align-items:center;justify-content:center;font-size:16px}
+  .phead h2{font-size:20px;margin:0}
+  .phead .est{margin-left:auto;font-size:12.5px;color:var(--muted);font-weight:600;white-space:nowrap}
+
+  .step{margin-bottom:18px}
+  .step .lbl{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+  .step .n{font-size:12px;font-weight:800;color:var(--accent);background:var(--accent-soft);
+    width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none}
+  .step h3{font-size:15.5px;margin:0}
+  .tagm{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;margin-left:2px}
+  .tagm.click{background:var(--green-soft);color:var(--green)}
+  .tagm.term{background:var(--accent-soft);color:var(--accent)}
+  .step p{font-size:14.5px;color:var(--muted);margin:0 0 6px 31px}
+  .step p b{color:var(--ink)}
+  pre{margin:6px 0 4px 31px;background:var(--code);color:#e6e6f0;border-radius:10px;padding:13px 15px;
+    font-family:"SF Mono",Menlo,Consolas,monospace;font-size:12.9px;line-height:1.55;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+  pre .c{color:#7d8590}
+  .fill{background:#3a2f10;color:#ffcf6b;padding:1px 5px;border-radius:4px;font-weight:600}
+  .note{background:var(--accent-soft);border-radius:11px;padding:13px 16px;font-size:13.8px;color:#33338a;margin:8px 0 0 31px}
+  .warn{background:var(--amber-soft);border-radius:11px;padding:13px 16px;font-size:13.8px;color:#8a5a12;margin:8px 0 0 31px}
+
+  .done{background:var(--green-soft);border:1px solid #bfe6cf;border-radius:16px;padding:22px 26px;margin-bottom:14px}
+  .done h2{font-size:19px;color:#0b7a45;margin-bottom:6px}
+  .done p{font-size:15px;color:#2a6b48}
+  .foot{font-size:13px;color:var(--muted);text-align:center;margin-top:24px}
+  @media(max-width:640px){h1{font-size:25px};.step p,pre,.note,.warn{margin-left:0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Founders Office · Going live checklist</div>
+  <h1>Publish the repo, the app &amp; turn on auto-updates</h1>
+  <p class="sub">Everything's already wired in the code. This is the one-time "go live" run. After this, each future release is just 3 quick steps (Phase 5).</p>
+  <div class="legend">
+    <span class="chip click">🖱️ Web clicks — anyone can do</span>
+    <span class="chip term">⌨️ One-line command — you or your engineer</span>
+    <span class="chip time">⏱️ ~30–45 min, once</span>
+  </div>
+
+  <!-- PHASE 1 -->
+  <div class="phase">
+    <div class="phead"><div class="pnum">1</div><h2>Create the GitHub home for your app</h2><span class="est">🖱️ ~5 min</span></div>
+    <div class="step">
+      <div class="lbl"><span class="n">1</span><h3>Sign in to GitHub<span class="tagm click">web</span></h3></div>
+      <p>Go to <b>github.com</b>. If your company doesn't have an account yet, create one (free). Your company org is likely "bookr" — use that if it exists.</p>
+    </div>
+    <div class="step">
+      <div class="lbl"><span class="n">2</span><h3>Create a new repository<span class="tagm click">web</span></h3></div>
+      <p>Click <b>New repository</b>. Name it something like <b>founders-office</b>. Set it to <b>Public</b> — this is what lets each app fetch its updates freely. (Public means the <em>download files</em> are reachable; you do <em>not</em> have to put your source code here.) Click <b>Create</b>.</p>
+      <div class="note">Write down two things from the address bar: the <b>owner</b> (e.g. <span class="fill">bookr</span>) and the <b>repo name</b> (e.g. <span class="fill">founders-office</span>). You'll need them in Phase 3.</div>
+    </div>
+    <div class="step">
+      <div class="lbl"><span class="n">3</span><h3>Create an upload key<span class="tagm click">web</span></h3></div>
+      <p>This lets your computer post new versions to that repo automatically. Go to <b>github.com/settings/tokens</b> → <b>Generate new token (classic)</b> → tick the <b>repo</b> box → Generate. Copy the long code it shows and keep it safe — that's your <b>upload key</b> (it's shown only once).</p>
+    </div>
+  </div>
+
+  <!-- PHASE 2 -->
+  <div class="phase">
+    <div class="phead"><div class="pnum">2</div><h2>Turn on Apple "notarization"</h2><span class="est">🖱️ ~10 min</span></div>
+    <div class="step">
+      <div class="lbl"><span class="n">1</span><h3>Why this matters<span class="tagm click">info</span></h3></div>
+      <p>Your app is <b>already signed</b> with your Apple identity. Apple also wants each new version "notarized" (a quick automated safety check), or Macs will quietly refuse to install the update. Windows needs none of this.</p>
+    </div>
+    <div class="step">
+      <div class="lbl"><span class="n">2</span><h3>Get an app-specific password<span class="tagm click">web</span></h3></div>
+      <p>Sign in at <b>appleid.apple.com</b> → <b>Sign-In &amp; Security</b> → <b>App-Specific Passwords</b> → create one (call it "app updates"). Copy it. This lets the build talk to Apple safely.</p>
+    </div>
+    <div class="step">
+      <div class="lbl"><span class="n">3</span><h3>Flip the switch in the app's settings<span class="tagm term">1 line</span></h3></div>
+      <p>In <b>desktop/package.json</b>, under <b>"mac"</b>, change <b>"notarize": false</b> to <b>"notarize": true</b>. (Your engineer changes one word; your Apple Team ID <b>QFH65RZ2JG</b> is already in the file.)</p>
+    </div>
+  </div>
+
+  <!-- PHASE 3 -->
+  <div class="phase">
+    <div class="phead"><div class="pnum">3</div><h2>Point the app at your repo</h2><span class="est">⌨️ ~2 min</span></div>
+    <div class="step">
+      <div class="lbl"><span class="n">1</span><h3>Fill in the two blanks<span class="tagm term">edit file</span></h3></div>
+      <p>In <b>desktop/package.json</b>, find the "publish" section and replace the two placeholders with what you wrote down in Phase 1:</p>
+<pre><span class="c">// desktop/package.json → build → publish</span>
+"publish": [
+  {
+    "provider": "github",
+    "owner": "<span class="fill">bookr</span>",          <span class="c">← your owner</span>
+    "repo":  "<span class="fill">founders-office</span>"  <span class="c">← your repo name</span>
+  }
+]</pre>
+    </div>
+  </div>
+
+  <!-- PHASE 4 -->
+  <div class="phase">
+    <div class="phead"><div class="pnum">4</div><h2>Publish the first version</h2><span class="est">⌨️ ~10 min</span></div>
+    <div class="step">
+      <div class="lbl"><span class="n">1</span><h3>Give the build your keys, then run one command<span class="tagm term">terminal</span></h3></div>
+      <p>In Terminal, paste your three secrets (from Phases 1 &amp; 2), then run the build. It packages Mac + Windows <b>and</b> uploads them to a draft release on GitHub:</p>
+<pre><span class="c"># paste your secrets (from Phases 1 & 2)</span>
+export GH_TOKEN=<span class="fill">your-github-upload-key</span>
+export APPLE_ID=<span class="fill">you@appleid.com</span>
+export APPLE_APP_SPECIFIC_PASSWORD=<span class="fill">the-apple-password</span>
+export APPLE_TEAM_ID=QFH65RZ2JG
+
+<span class="c"># build Mac + Windows and upload</span>
+cd desktop && npm run dist:all -- -p always</pre>
+      <div class="warn">This runs on a <b>Mac</b> (Apple signing only works on macOS). It takes a few minutes and prints a lot — that's normal. Wait for it to finish.</div>
+    </div>
+    <div class="step">
+      <div class="lbl"><span class="n">2</span><h3>Click "Publish" on the draft<span class="tagm click">web</span></h3></div>
+      <p>Go to your repo → <b>Releases</b>. You'll see a <b>draft</b> release (version 0.3.1) with the Mac and Windows files attached. Review it, then click <b>Publish release</b>. That's the app live.</p>
+      <div class="note">The download link you share with new users is on this Releases page — the <b>.dmg</b> for Mac, the <b>.exe</b> for Windows.</div>
+    </div>
+  </div>
+
+  <!-- DONE -->
+  <div class="done">
+    <h2>✅ Auto-updates are now live</h2>
+    <p>From now on, anyone running your app will quietly pull each new version you publish — on Mac and Windows — with zero action from them or you beyond publishing.</p>
+  </div>
+
+  <!-- PHASE 5 -->
+  <div class="phase">
+    <div class="phead"><div class="pnum">5</div><h2>Every future update — ~2 minutes</h2><span class="est">⌨️ repeat</span></div>
+    <div class="step">
+      <div class="lbl"><span class="n">1</span><h3>Bump the version number<span class="tagm term">edit file</span></h3></div>
+      <p>In <b>desktop/package.json</b>, raise <b>"version"</b> (e.g. 0.3.1 → <b>0.3.2</b>). This is the signal that says "something new."</p>
+    </div>
+    <div class="step">
+      <div class="lbl"><span class="n">2</span><h3>Run the same build command<span class="tagm term">terminal</span></h3></div>
+      <p>Same secrets already set (or re-paste them), then:</p>
+<pre>cd desktop && npm run dist:all -- -p always</pre>
+    </div>
+    <div class="step">
+      <div class="lbl"><span class="n">3</span><h3>Click Publish<span class="tagm click">web</span></h3></div>
+      <p>Publish the new draft release on GitHub. Done — every installed app updates itself from there.</p>
+    </div>
+  </div>
+
+  <p class="foot">Companion files in this folder: <b>how-updates-work.html</b> (the simple picture) · <b>AUTO-UPDATE-SETUP.md</b> (the technical reference)</p>
+</div>
+</body>
+</html>

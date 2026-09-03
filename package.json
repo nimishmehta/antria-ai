@@ -1,0 +1,127 @@
+{
+  "name": "nimish-office",
+  "productName": "Founders Office",
+  "version": "0.4.1",
+  "description": "Founders Office — a delightful founder's office over Claude Code.",
+  "author": "The Founder <nmehta@bookr.inc>",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "stage": "bash stage-skills.sh",
+    "dist": "bash stage-skills.sh && electron-builder --mac dmg zip --universal",
+    "dist:all": "bash stage-skills.sh && electron-builder --mac dmg zip --universal --win nsis"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
+  "devDependencies": {
+    "electron": "31.7.7",
+    "electron-builder": "24.13.3"
+  },
+  "build": {
+    "appId": "inc.bookr.nimishoffice",
+    "productName": "Founders Office",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "afterPack": "build/afterPack.js",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "nimishmehta",
+        "repo": "founders-office"
+      }
+    ],
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../fleet-office",
+        "to": "fleet-office",
+        "filter": [
+          "**/*",
+          "!.git/**",
+          "!.gstack/**",
+          "!node_modules/**",
+          "!**/*.log",
+          "!**/.DS_Store",
+          "!desk-notes/**",
+          "!self-improve/**",
+          "!agents/**",
+          "!.founder-attachments/**",
+          "!EXECUTION-PLAN*",
+          "!REVISION-PLAN*",
+          "!README.md",
+          "!*.html",
+          "!generate-agents.js",
+          "!public/channel-liveliness-mockup.html",
+          "!launch-hello-tasks.js",
+          "!submit-tasks.js"
+        ]
+      },
+      {
+        "from": "skills-bundle",
+        "to": "skills",
+        "filter": [
+          "**/*",
+          "!.git/**",
+          "!node_modules/**",
+          "!**/.venv/**",
+          "!**/__pycache__/**",
+          "!**/*.log",
+          "!**/.DS_Store"
+        ]
+      }
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.icns",
+      "identity": "Nimish Mehta (QFH65RZ2JG)",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "notarize": true
+    },
+    "dmg": {
+      "title": "Founders Office"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "artifactName": "${productName}-${version}.${ext}"
+    }
+  }
+}

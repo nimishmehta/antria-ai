@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auto-Updates for Founders Office — What's Done & What's Next</title>
+<style>
+  :root{
+    --ink:#1a1a2e; --muted:#5b5b74; --line:#e6e6ef; --bg:#f7f7fb;
+    --accent:#4f46e5; --accent-soft:#eef0ff; --green:#0f9d58; --green-soft:#e6f6ee;
+    --amber:#b7791f; --amber-soft:#fdf3e2; --card:#ffffff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.6;padding:48px 20px}
+  .wrap{max-width:820px;margin:0 auto}
+  .eyebrow{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+  h1{font-size:34px;line-height:1.15;margin:8px 0 10px;letter-spacing:-.02em}
+  .sub{font-size:18px;color:var(--muted);margin-bottom:36px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px 30px;margin-bottom:22px;
+    box-shadow:0 1px 2px rgba(20,20,50,.04)}
+  h2{font-size:20px;margin-bottom:14px;display:flex;align-items:center;gap:10px}
+  .pill{font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px}
+  .pill.done{background:var(--green-soft);color:var(--green)}
+  .pill.todo{background:var(--amber-soft);color:var(--amber)}
+  p{margin-bottom:12px}
+  ul{margin:6px 0 4px 2px;list-style:none}
+  li{padding-left:28px;position:relative;margin-bottom:9px}
+  li.ok::before{content:"✓";position:absolute;left:0;top:0;color:var(--green);font-weight:800}
+  li.step::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:1px;
+    background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:12px;
+    width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+  ol.steps{counter-reset:s;list-style:none}
+  ol.steps li{padding-left:32px;position:relative;margin-bottom:11px}
+  .note{background:var(--accent-soft);border-radius:12px;padding:16px 18px;font-size:15px;color:#33338a;margin-top:14px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:6px}
+  .mini{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .mini h3{font-size:15px;margin-bottom:6px}
+  .mini p{font-size:14px;color:var(--muted);margin:0}
+  .rec{display:inline-block;font-size:11px;font-weight:700;color:var(--green);background:var(--green-soft);
+    padding:2px 8px;border-radius:999px;margin-left:6px}
+  .foot{font-size:13px;color:var(--muted);text-align:center;margin-top:30px}
+  @media(max-width:640px){.two{grid-template-columns:1fr}h1{font-size:27px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Founders Office · Desktop App</div>
+  <h1>Auto-updates are wired up</h1>
+  <p class="sub">Your app can now update itself in the background — on both Mac <em>and</em> Windows. Here's what's built, how each release will work, and the two small things I need from you to switch it on for real.</p>
+
+  <div class="card">
+    <h2>What's done <span class="pill done">Built &amp; verified</span></h2>
+    <p>A quick note on the tool: Sparkle is made for a different kind of Mac app and only covers Mac. Your app is built with Electron and ships on Mac and Windows, so we used <strong>electron-updater</strong> — the standard for your exact setup. Same "set it up once, ~2 minutes per release" experience you were promised, and it updates your Windows users too.</p>
+    <ul>
+      <li class="ok">The update engine is installed and wired into the app.</li>
+      <li class="ok">On launch, the app quietly checks for a newer version, downloads it in the background, and installs it the next time the app is closed — the user does nothing.</li>
+      <li class="ok">If the update server is ever unreachable, the app just carries on normally — no crashes, no error pop-ups.</li>
+      <li class="ok">Set up to work for <strong>both Mac and Windows</strong> from one place.</li>
+      <li class="ok">A plain-English release checklist is saved alongside this file.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Every future release — about 2 minutes</h2>
+    <p>Once the two items below are set, shipping an update is this simple:</p>
+    <ol class="steps">
+      <li class="step">Bump the version number.</li>
+      <li class="step">Run the one build command — it produces the Mac and Windows update files automatically.</li>
+      <li class="step">Upload those files to your update folder (drag &amp; drop), replacing the old ones.</li>
+    </ol>
+    <div class="note">That's it. Every installed app picks up the new version on its own within a launch or two. No app-store review, no emails to users, no reinstalls.</div>
+  </div>
+
+  <div class="card">
+    <h2>Host chosen: GitHub Releases <span class="pill done">Configured</span></h2>
+    <p>You picked <strong>GitHub Releases</strong> — free, nothing to run, and uploads are drag-and-drop (or fully automatic). The app is now pointed at it. Two small handoffs from your side flip it live:</p>
+    <div class="two">
+      <div class="mini">
+        <h3>1. Which GitHub repo + upload key</h3>
+        <p>Tell your team which GitHub repository should hold the releases (I've left a labeled blank for its name), and create a one-time GitHub upload key so builds can post themselves. Both are a 2-minute setup — steps are in the release checklist.</p>
+      </div>
+      <div class="mini">
+        <h3>2. Turn on Apple "notarization"</h3>
+        <p>Good news — your app is <strong>already signed</strong> with your Apple developer identity. Apple just needs one "notarize" step switched on, or Mac updates silently won't install for users. It's a small config change using your Apple account. (Windows works without it.)</p>
+      </div>
+    </div>
+    <div class="note">Once those two are in, shipping an update is: bump the version → run one command → click "Publish" on GitHub. Your Mac and Windows users update themselves from there.</div>
+  </div>
+
+  <p class="foot">Prepared by your office · The technical setup file lives next to this one as <strong>AUTO-UPDATE-SETUP.md</strong></p>
+</div>
+</body>
+</html>
