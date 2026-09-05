@@ -22,22 +22,19 @@ Write emails in the founder's voice. This skill drafts only. It is an outward-fa
 5. Save it as a draft where the founder works:
    - Gmail connected → create a draft (do not send).
    - Outlook connected → create a draft (do not send).
-   - Neither → return the draft as plain text they can paste.
-6. Hand back with the send reminder above.
+   - Neither → SAVE the draft to a copy-friendly file in the working folder — `.md` or `.txt` (subject line + body). NEVER `.docx` for an email body (clumsy to copy out); `.docx`/document-generate stays for full documents/letters per line ~52.
+6. Hand back: a ONE-LINE pointer to the saved draft, and at most the subject line — do NOT paste the whole email body into chat (no blockquoted greeting/body/sign-off dump). Include the send reminder above.
 
 ## Concrete example
 Founder: "Reply to the VC who asked for our deck — warm, tell them it's coming Friday."
-Draft:
-> Subject: Deck — sending Friday
->
-> Hi Dana,
->
-> Great meeting you. I'm tightening the deck and will have it to you Friday. Anything specific you want me to make sure it covers?
->
-> Best,
-> [Founder]
 
-Saved as a Gmail draft. Nothing sent. Say "send it" when ready.
+The email you write (subject + short warm body, one ask) goes into the DRAFT, not into chat:
+- Gmail/Outlook connected → saved as an unsent draft there.
+- Neither → saved to the working folder as `vc-deck-reply.md`.
+
+Then hand back in chat with a one-line pointer + subject only — NOT the full body:
+
+> Draft ready — subject "Deck — sending Friday". Saved as a Gmail draft (nothing sent). Say "send it" when ready.
 
 ## Quality bar (every time)
 - **Sounds like the founder**, not like an assistant. No "I hope this email finds you well."

@@ -228,12 +228,107 @@ function ensureClaudeInstalled(onProgress) {
   });
 }
 
-// Env for any child we spawn: enriched PATH + CLAUDE_BIN so `claude` is findable.
+// ---- Vercel CLI (deploy) resolution -----------------------------------------
+// Same "opened from Finder = minimal PATH" problem as claude, plus: on a fresh Mac
+// the `vercel` npm CLI may not be installed at all. We install it into an
+// APP-MANAGED, user-writable dir (no sudo, no global npm prefix) and resolve its
+// absolute bin so the server can spawn it directly (mirrors CLAUDE_BIN). The dir is
+// DETERMINISTIC and shared with server.js so a background install that finishes AFTER
+// the server booted is still picked up on the next vercel call — no restart needed.
+function vercelInstallDir() {
+  // ~/.claude/local/office-vercel — user-writable, no elevation, survives app updates.
+  return path.join(os.homedir(), '.claude', 'local', 'office-vercel');
+}
+function vercelBinPath() {
+  // `npm install vercel --prefix <dir>` drops the launcher in <dir>/node_modules/.bin.
+  const name = process.platform === 'win32' ? 'vercel.cmd' : 'vercel';
+  return path.join(vercelInstallDir(), 'node_modules', '.bin', name);
+}
+// Absolute `vercel` if we can find one: our managed install first, else scan the
+// enriched PATH. '' if nowhere (server then degrades to the "not installed" flow).
+function resolveVercelBin() {
+  try { const ours = vercelBinPath(); if (fs.existsSync(ours)) return ours; } catch (_) {}
+  const { PATH } = resolveShellPathAndClaude();
+  const names = process.platform === 'win32' ? ['vercel.cmd', 'vercel.exe', 'vercel'] : ['vercel'];
+  for (const dir of (PATH || '').split(path.delimiter)) {
+    if (!dir) continue;
+    for (const n of names) { try { const c = path.join(dir, n); if (fs.existsSync(c)) return c; } catch (_) {} }
+  }
+  return '';
+}
+
+// Env for any child we spawn: enriched PATH + CLAUDE_BIN so `claude` is findable,
+// plus VERCEL_BIN + the vercel bin dir on PATH so the deploy flow (and agent-driven
+// `vercel` spawns that inherit this env) resolve our managed install.
 function childEnv(extra) {
   const { PATH, claudeBin } = resolveShellPathAndClaude();
-  const env = { ...process.env, PATH };
+  let fullPath = PATH;
+  const vercelBin = resolveVercelBin();
+  if (vercelBin) {
+    const vdir = path.dirname(vercelBin);
+    if (!(PATH || '').split(path.delimiter).includes(vdir)) fullPath = vdir + path.delimiter + PATH;
+  }
+  const env = { ...process.env, PATH: fullPath };
   if (claudeBin) env.CLAUDE_BIN = claudeBin;
+  if (vercelBin) env.VERCEL_BIN = vercelBin;
   return { ...env, ...(extra || {}) };
+}
+
+// ---- First-run Vercel CLI provisioning --------------------------------------
+// Ensure the `vercel` CLI exists so the deploy flow leaves ONLY login for the user.
+// IDEMPOTENT: skip if vercel already resolves (PATH or our managed install) or the
+// version marker matches. NON-BLOCKING: spawns npm in the background and returns
+// immediately — never delays or breaks boot. NO SUDO: `npm install --prefix <userDir>`
+// is a plain local install into a writable dir (no -g, no global prefix, no password).
+// Everything is wrapped/best-effort; failure just leaves the current "not installed"
+// messaging intact. Verifies `vercel --version` runs before writing the marker.
+function seedVercelCli() {
+  try {
+    if (resolveVercelBin()) return; // already available anywhere → nothing to do
+    const claudeDir = path.join(os.homedir(), '.claude');
+    const marker = path.join(claudeDir, '.nimish-office-vercel.json');
+    const version = app.getVersion();
+    try { const m = JSON.parse(fs.readFileSync(marker, 'utf8')); if (m && m.version === version) return; } catch (_) {}
+
+    const dir = vercelInstallDir();
+    fs.mkdirSync(dir, { recursive: true });
+
+    // Electron bundles Node but NOT npm — find the user's npm on the enriched PATH.
+    const { PATH } = resolveShellPathAndClaude();
+    const isWin = process.platform === 'win32';
+    const npmName = isWin ? 'npm.cmd' : 'npm';
+    let npmBin = '';
+    for (const p of (PATH || '').split(path.delimiter)) {
+      if (!p) continue;
+      try { const c = path.join(p, npmName); if (fs.existsSync(c)) { npmBin = c; break; } } catch (_) {}
+    }
+    if (!npmBin) { console.warn('[seed-vercel] npm not found on PATH — skipping (deploy stays "not installed").'); return; }
+
+    console.log('[seed-vercel] installing vercel CLI in the background…');
+    const child = spawn(npmBin, ['install', 'vercel', '--prefix', dir, '--no-audit', '--no-fund', '--loglevel', 'error'],
+      { env: childEnv({}), windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    try { child.stdout.on('data', (d) => process.stdout.write(`[seed-vercel] ${d}`)); } catch (_) {}
+    try { child.stderr.on('data', (d) => process.stderr.write(`[seed-vercel:err] ${d}`)); } catch (_) {}
+    child.on('error', (e) => console.warn(`[seed-vercel] install failed (app still runs): ${e && e.message}`));
+    child.on('exit', (code) => {
+      const bin = vercelBinPath();
+      if (code === 0 && fs.existsSync(bin)) {
+        // VERIFY the claim: the installed launcher must actually run.
+        let ok = false;
+        try { const r = spawnSync(bin, ['--version'], { timeout: 15000, encoding: 'utf8', env: childEnv({}) }); ok = r.status === 0; } catch (_) {}
+        if (ok) {
+          try { fs.writeFileSync(marker, JSON.stringify({ version, at: new Date().toISOString(), bin })); } catch (_) {}
+          console.log('[seed-vercel] vercel CLI ready — only login left for the user.');
+        } else {
+          console.warn('[seed-vercel] installed but `vercel --version` did not run — leaving for retry next launch.');
+        }
+      } else {
+        console.warn(`[seed-vercel] npm exited ${code} (app still runs; deploy stays "not installed").`);
+      }
+    });
+  } catch (e) {
+    console.warn(`[seed-vercel] failed (app still boots): ${e && e.message}`);
+  }
 }
 
 // TCP probe: is something already listening on PORT?
@@ -499,6 +594,7 @@ async function boot() {
       return;
     }
     seedSkills();
+    seedVercelCli();  // background, non-blocking — provisions the deploy CLI (login-only left)
     startServer();
   } else {
     console.log('[office] port 4517 already in use — attaching to existing office.');
