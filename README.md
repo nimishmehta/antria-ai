@@ -51,9 +51,42 @@ computer.
 These links always point to the latest release. The Mac build is notarized by Apple; the app
 updates itself as new versions ship.
 
+## Built on an open harness
+
+The part of Antria that makes the team feel like colleagues rather than chatbots — how work
+gets staffed to the right specialists, when one of them stops to ask you something instead of
+guessing, and how finished work comes back in plain English — is open source.
+
+**[antria-office](https://github.com/nimishmehta/antria-office)** is that harness, published on
+its own under the MIT licence. It's a plugin for Claude Cowork and Claude Code that puts the
+same twenty-specialist office behind a plain-English request, with no app required.
+
+Antria is the desktop app built on top of it: the same team, plus a real interface, your own
+folders, work that keeps running after you close the lid, and no terminal anywhere in sight.
+
+If you want to change how the team *behaves* — sharpen a role, add one, change when a
+specialist stops to ask you something — that work happens in
+[antria-office](https://github.com/nimishmehta/antria-office), and it takes pull requests.
+
 ## Learn more
 
 Everything — how it works, the full team, and what it can do — is at **[antria.ai](https://www.antria.ai)**.
+
+---
+
+## Project
+
+| | |
+| --- | --- |
+| Report a bug or request a feature | [Issues](https://github.com/nimishmehta/antria-ai/issues) |
+| Getting help | [SUPPORT.md](SUPPORT.md) |
+| What's welcome here | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Reporting a vulnerability | [SECURITY.md](SECURITY.md) |
+| Ground rules | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
+| Licence | [LICENSE](LICENSE) — the app is free to use and proprietary; the [harness](https://github.com/nimishmehta/antria-office) is MIT |
+
+Antria is free, runs on the AI plan you already pay for, and keeps your work on your own
+computer.
 
 ---
 

@@ -1,0 +1,79 @@
+name: Bug report
+description: Something in Antria is broken or behaving wrongly.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting this. Issues here are public — please redact anything
+        confidential before you paste file contents or task text.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you ask the team to do, and what did it do instead?
+      placeholder: I asked for a pricing one-pager and the task stopped halfway with no error.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: If you can make it happen again, list the steps.
+      placeholder: |
+        1. Open Antria and pick folder X
+        2. Type "..."
+        3. Wait for the team to start
+        4. It stops after the designer finishes
+
+  - type: input
+    id: version
+    attributes:
+      label: Antria version
+      description: Shown in the app.
+      placeholder: "0.2.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Windows
+    validations:
+      required: true
+
+  - type: dropdown
+    id: engine
+    attributes:
+      label: Which engine are you running on?
+      options:
+        - Claude
+        - Codex
+        - Not sure
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I am on the latest release
+          required: true
+        - label: I searched existing issues, including closed ones
+          required: true
+        - label: I have removed anything confidential from this report
+          required: true

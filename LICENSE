@@ -1,0 +1,45 @@
+Copyright (c) 2026 Nimish Mehta. All rights reserved.
+
+This repository contains the public README, documentation, and brand assets for
+Antria, together with links to the released application binaries. It does not
+contain the application's source code.
+
+THE ANTRIA APPLICATION
+----------------------
+Antria is proprietary software. The application binaries distributed through
+this repository's Releases are licensed, not sold. You may download, install,
+and use Antria free of charge, for personal or internal business purposes,
+including commercial use within your own organisation.
+
+You may not:
+  - redistribute, resell, rent, or sublicense the binaries;
+  - decompile, disassemble, or otherwise reverse-engineer the application,
+    except to the extent that applicable law expressly permits it; or
+  - remove or alter any copyright, trademark, or other proprietary notice.
+
+DOCUMENTATION
+-------------
+The README and any other Markdown documentation in this repository may be
+quoted, excerpted, and translated freely, with attribution.
+
+BRAND ASSETS
+------------
+The name "Antria", the Antria logo, and the image assets in this repository
+remain the property of the copyright holder. You may use them to refer to or
+link to Antria. You may not use them to identify another product or service, or
+in any way that implies endorsement or affiliation.
+
+OPEN-SOURCE COMPONENTS
+----------------------
+The office harness that Antria is built on is published separately under the MIT
+licence at https://github.com/nimishmehta/antria-office and is governed by that
+licence, not this one.
+
+NO WARRANTY
+-----------
+ANTRIA IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT HOLDER
+BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

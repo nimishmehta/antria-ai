@@ -1,0 +1,41 @@
+name: Feature request
+description: Suggest something Antria should be able to do.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The most useful requests describe the **job you were trying to get done**,
+        not the feature you imagined. Those lead to better solutions than the one
+        either of us thought of first.
+
+  - type: textarea
+    id: job
+    attributes:
+      label: What were you trying to get done?
+      description: The real task, in your own words.
+      placeholder: Every Friday I need to send each client a summary of what changed that week.
+    validations:
+      required: true
+
+  - type: textarea
+    id: today
+    attributes:
+      label: How do you handle it today?
+      description: Including the manual workarounds. This is often the most informative part.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What did you have in mind?
+      description: Optional. If you already have a shape in mind, describe it.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues, including closed ones
+          required: true
