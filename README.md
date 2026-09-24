@@ -23,12 +23,11 @@
 
 ## What is Antria?
 
-You bring the idea and the decisions. Antria gives you a team of specialists — an engineer,
-a designer, a marketer, an analyst, a finance lead, and more — who plan the work, do it, and
-tell you what happened in plain English. No terminal, no code, no prompt-wrangling.
-
-It runs on the Claude or Codex plan you already pay for, and everything stays on your own
-computer.
+Antria is a desktop app that gives non-technical solo builders a full AI company — a founder,
+engineer, designer, copywriter, and more — running on your own Claude Pro or Max plan, entirely
+on your device. Nothing runs in our cloud. And the longer you use it, the more it becomes *your*
+team: Antria learns your tone, your formats, and how you like work done, then reflects that in
+everything it produces next.
 
 ## Why people use it
 
@@ -40,6 +39,21 @@ computer.
   what's blocked, what shipped.
 - **Your company stays on your computer.** Your files and context never leave your machine.
 - **Put a team on it tonight.** Start a task, close the lid, come back to finished work.
+
+## Learns how you work
+
+Antria watches how you refine things — the rewrites you ask for, the formats you settle on, the
+way you like an email or a doc to read — and quietly remembers your preferences on your device.
+Every future task starts from what it already knows about you, so you spend less time correcting
+and more time shipping. You can open the "What Antria learned about you" panel at any point to
+see, edit, or delete what it's picked up.
+
+- **On-device memory** — preferences are stored locally, never in the cloud or with the model.
+- **Learns from real work** — it picks up your style from how you edit and re-prompt, not from a setup form.
+- **Applies everywhere** — your voice and formats carry across emails, docs, decks, and code.
+- **Fully transparent** — a single panel shows everything the team has learned about you.
+- **Yours to control** — edit or delete any learned preference at any time.
+- **Gets better over time** — the more you work with your team, the more it sounds like you.
 
 ## Download
 
