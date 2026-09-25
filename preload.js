@@ -6,7 +6,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('nimishOffice', {
   desktop: true,
-  version: '0.1.0',
+  version: '0.2.2',
   // Fires when the Electron updater has downloaded a new version and it's ready
   // to install. cb receives { ready:true, version }.
   onUpdateReady: (cb) => {
@@ -18,6 +18,9 @@ contextBridge.exposeInMainWorld('nimishOffice', {
   getUpdateState: () => ipcRenderer.invoke('get-update-state'),
   // Relaunch the app to apply the downloaded update.
   relaunchToUpdate: () => ipcRenderer.send('quit-and-install'),
+  // Full app relaunch — the hook the office's one-click engine-switch restart calls
+  // (window.nimishOffice.relaunchApp) to reopen on the newly-chosen engine.
+  relaunchApp: () => ipcRenderer.send('relaunch-app'),
   // Retry first-run setup (re-attempt Claude Code install + start the team).
   retryBoot: () => ipcRenderer.send('retry-boot'),
 });

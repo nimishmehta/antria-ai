@@ -44,7 +44,7 @@ done
 
 # Scrub personal/old branding from staged skills (source lives outside this repo).
 find "$DEST" -type f \( -name '*.md' -o -name '*.js' -o -name '*.py' -o -name '*.txt' \) \
-  -exec perl -pi -e 's/Nimish Office/Founders Office/g' {} + 2>/dev/null
+  -exec perl -pi -e 's/Nimish Office/Antria/g' {} + 2>/dev/null
 
 echo "Staged capability skills:$BUNDLED"
 [ -n "$MISSING" ] && echo "WARNING: skipped (not found in $SRC):$MISSING"

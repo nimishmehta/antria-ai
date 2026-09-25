@@ -50,6 +50,15 @@ function resolveShellPathAndClaude() {
 // user-level install locations the official installer writes to. `claude` on
 // Windows is a .cmd/.exe/.ps1 shim, so probe those extensions too. PATH is
 // joined with ";" (path.delimiter) here — never ":".
+// A Windows claude target that child_process can spawn DIRECTLY. Node ≥20.12
+// (Electron 31 → Node 20.18) throws EINVAL on `.cmd`/`.bat` shims, and `.ps1`
+// needs PowerShell — so only a native `.exe` (or a bare, extension-less binary)
+// is safe to hand straight to spawn(). We prefer these everywhere so the office —
+// including the first `auth status` and the login button — actually runs.
+function winDirectlySpawnable(p) {
+  const ext = path.extname(p || '').toLowerCase();
+  return ext === '.exe' || ext === '.com' || ext === '';
+}
 function resolveWindows() {
   const sep = path.delimiter; // ";" on win32
   const env = process.env;
@@ -57,6 +66,9 @@ function resolveWindows() {
   let claudeBin = '';
 
   // 1. `where claude` — searches the current PATH for any matching executable.
+  //    `where` can list several shims (claude.exe AND claude.cmd). Prefer a
+  //    directly-spawnable native binary; only fall back to a shim if that's all
+  //    there is (claude.js then routes the shim through a shell as a safety net).
   try {
     const r = spawnSync('cmd', ['/d', '/s', '/c', 'where claude'], {
       encoding: 'utf8',
@@ -64,10 +76,8 @@ function resolveWindows() {
       windowsHide: true,
     });
     const out = (r && r.stdout) || '';
-    for (const line of out.split(/\r?\n/)) {
-      const t = line.trim();
-      if (t && fs.existsSync(t)) { claudeBin = t; break; }
-    }
+    const hits = out.split(/\r?\n/).map((l) => l.trim()).filter((t) => t && fs.existsSync(t));
+    claudeBin = hits.find(winDirectlySpawnable) || hits[0] || '';
   } catch (_) {}
 
   // 2. Candidate install dirs the user-level installer writes to.
@@ -89,12 +99,14 @@ function resolveWindows() {
   }
   const PATH = parts.join(sep);
 
-  // 3. If `where` came up empty, probe each candidate dir for a claude shim.
-  if (!claudeBin) {
-    const names = ['claude.cmd', 'claude.exe', 'claude.ps1', 'claude'];
+  // 3. Probe candidate dirs. Native `.exe` first so we spawn directly; a `.cmd`
+  //    shim is only a last resort. Run this even when step 1 already found a shim,
+  //    so a directly-spawnable binary in a known install dir wins over it.
+  if (!claudeBin || !winDirectlySpawnable(claudeBin)) {
+    const names = ['claude.exe', 'claude.com', 'claude', 'claude.cmd', 'claude.bat', 'claude.ps1'];
     outer:
-    for (const dir of parts) {
-      for (const name of names) {
+    for (const name of names) {          // name-outer: a native .exe in ANY dir beats a .cmd elsewhere
+      for (const dir of parts) {
         try {
           const cand = path.join(dir, name);
           if (fs.existsSync(cand)) { claudeBin = cand; break outer; }
@@ -175,8 +187,12 @@ function resolvePosix() {
 //   darwin/linux: bash -lc  "curl -fsSL https://claude.ai/install.sh | bash"
 function ensureClaudeInstalled(onProgress) {
   return new Promise((resolve) => {
-    // Already present? Nothing to do.
-    if (resolveShellPathAndClaude().claudeBin) {
+    // Already present AND directly spawnable? Nothing to do. On Windows a bare
+    // `.cmd`/`.bat`/`.ps1` shim is NOT enough — Node 20.18 (Electron 31) can't spawn
+    // it, so the office would boot but never see the signed-in account. In that case
+    // fall through to the native installer, which drops a spawnable `claude.exe`.
+    const pre = resolveShellPathAndClaude().claudeBin;
+    if (pre && (process.platform !== 'win32' || winDirectlySpawnable(pre))) {
       resolve({ installed: true });
       return;
     }
@@ -228,6 +244,162 @@ function ensureClaudeInstalled(onProgress) {
   });
 }
 
+// ---- Codex (OpenAI) CLI resolution + install --------------------------------
+// The office's SECOND engine. Pinned EXACT version per app release — codex ships
+// near-daily and the engine adapter (fleet-office/lib/engine/codex.js) is written
+// against this surface. Install is a plain npm GLOBAL (needs Node ≥22), identical
+// command on mac/win/linux. codex.js spawns `process.env.CODEX_BIN || 'codex'`, so
+// we resolve the absolute bin and pass CODEX_BIN (mirrors CLAUDE_BIN).
+const CODEX_PIN = '0.153.4';
+
+// Absolute `codex` if resolvable on the enriched PATH (npm-global drops it there).
+// '' if nowhere — the server then reports needs-install honestly.
+function resolveCodexBin() {
+  const { PATH } = resolveShellPathAndClaude();
+  const names = process.platform === 'win32' ? ['codex.cmd', 'codex.exe', 'codex'] : ['codex'];
+  for (const dir of (PATH || '').split(path.delimiter)) {
+    if (!dir) continue;
+    for (const n of names) { try { const c = path.join(dir, n); if (fs.existsSync(c)) return c; } catch (_) {} }
+  }
+  return '';
+}
+
+// Installed codex version as a [major,minor,patch] triple, or null if it can't be
+// read. Windows: a `.cmd`/`.bat` shim can't be spawned directly (Node 20.18 EINVAL),
+// so route it through the shell; `.ps1` through PowerShell — same rule as claude.js.
+function detectCodexVersion(bin) {
+  if (!bin) return null;
+  const isWin = process.platform === 'win32';
+  const ext = path.extname(bin).toLowerCase();
+  try {
+    let r;
+    if (isWin && ext === '.ps1') {
+      r = spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', bin, '--version'],
+        { encoding: 'utf8', timeout: 8000, windowsHide: true, env: childEnv({}) });
+    } else {
+      const useShell = isWin && (ext === '.cmd' || ext === '.bat');
+      r = spawnSync(bin, ['--version'], { encoding: 'utf8', timeout: 8000, windowsHide: true, env: childEnv({}), shell: useShell });
+    }
+    const out = ((r && r.stdout) || '') + ((r && r.stderr) || '');
+    const m = out.match(/(\d+)\.(\d+)\.(\d+)/);
+    return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+  } catch (_) { return null; }
+}
+const CODEX_PIN_TRIPLE = CODEX_PIN.split('.').map(Number);
+function semverLt(a, b) { for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== (b[i] || 0)) return (a[i] || 0) < (b[i] || 0); } return false; }
+// codex present AND at least the pinned version the current model needs? An older
+// install (or one we can't read a version from) counts as stale → force an upgrade.
+// This is the fix for "the 'gpt-5.6-terra' model requires a newer version of Codex":
+// the old check only asked "does codex exist?" and never upgraded a too-old CLI.
+function codexUpToDate() {
+  const bin = resolveCodexBin();
+  if (!bin) return false;
+  const v = detectCodexVersion(bin);
+  if (!v) return false;
+  return !semverLt(v, CODEX_PIN_TRIPLE);
+}
+
+// Find `node` on the enriched PATH and return its major version (0 if unknown).
+function detectNodeMajor() {
+  const { PATH } = resolveShellPathAndClaude();
+  const isWin = process.platform === 'win32';
+  const nodeName = isWin ? 'node.exe' : 'node';
+  for (const p of (PATH || '').split(path.delimiter)) {
+    if (!p) continue;
+    try {
+      const c = path.join(p, nodeName);
+      if (fs.existsSync(c)) {
+        const r = spawnSync(c, ['--version'], { encoding: 'utf8', timeout: 5000 });
+        const m = (r && r.stdout || '').match(/v?(\d+)\./);
+        if (m) return Number(m[1]);
+      }
+    } catch (_) {}
+  }
+  return 0;
+}
+
+// First-run gate for the Codex engine. Mirrors ensureClaudeInstalled: idempotent
+// (no-op if `codex` already resolves), honest failures (no npm/Node, Node too old,
+// network) surface the retry UI, never silent. Install = `npm install -g
+// @openai/codex@<PIN>` — same command on every OS.
+function ensureCodexInstalled(onProgress) {
+  return new Promise((resolve) => {
+    // Up to date? Nothing to do. A codex that merely EXISTS is not enough — if it's
+    // older than the pinned version the model needs, fall through and upgrade it.
+    if (codexUpToDate()) { resolve({ installed: true }); return; }
+
+    // Need npm (Electron bundles Node but not npm) and Node ≥22 to install codex.
+    const { PATH } = resolveShellPathAndClaude();
+    const isWin = process.platform === 'win32';
+    const npmName = isWin ? 'npm.cmd' : 'npm';
+    let npmBin = '';
+    for (const p of (PATH || '').split(path.delimiter)) {
+      if (!p) continue;
+      try { const c = path.join(p, npmName); if (fs.existsSync(c)) { npmBin = c; break; } } catch (_) {}
+    }
+    if (!npmBin) { resolve({ installed: false, error: 'Node/npm not found — install Node 22+ then reopen.' }); return; }
+    const major = detectNodeMajor();
+    if (major && major < 22) { resolve({ installed: false, error: `Node ${major} is too old — the OpenAI engine needs Node 22+.` }); return; }
+
+    try { onProgress && onProgress('Setting up your engine… (one-time, ~1–2 min)'); } catch (_) {}
+
+    let child;
+    try {
+      child = spawn(npmBin, ['install', '-g', `@openai/codex@${CODEX_PIN}`, '--no-audit', '--no-fund', '--loglevel', 'error'],
+        { windowsHide: true, env: childEnv({}) });
+    } catch (e) { resolve({ installed: false, error: e.message }); return; }
+
+    let stderr = '';
+    let done = false;
+    const finish = (result) => { if (done) return; done = true; clearTimeout(watchdog); resolve(result); };
+    const watchdog = setTimeout(() => {
+      try { child.kill('SIGKILL'); } catch (_) {}
+      finish({ installed: false, error: 'Setup timed out — check your connection.' });
+    }, 180000);
+
+    try { child.stdout.on('data', (d) => process.stdout.write(`[codex-install] ${d}`)); } catch (_) {}
+    try { child.stderr.on('data', (d) => { stderr += d; process.stderr.write(`[codex-install:err] ${d}`); }); } catch (_) {}
+    child.on('error', (e) => finish({ installed: false, error: e.message }));
+    child.on('exit', (code) => {
+      _resolved = null; // installer wrote a new global bin — re-resolve PATH
+      if (resolveCodexBin()) finish({ installed: true });
+      else finish({ installed: false, error: `installer exited ${code}${stderr ? `: ${stderr.slice(-300)}` : ''}` });
+    });
+  });
+}
+
+// ---- Engine choice (drives which CLI the wrapper installs) -------------------
+// The chosen engine is persisted by the office server in ~/.founders-office/config.json
+// (`engine` key: "claude" | "codex"). We read it RAW here — the server owns writing it
+// (chooser SCREEN-1 + the existing-user rollout that maps prior installs to claude).
+//   • "codex"  → install/attach the OpenAI engine.
+//   • "claude" → install/attach Claude Code (existing users; byte-identical to before).
+//   • absent   → fresh install, no choice yet: default to Claude (the shipped default),
+//                exactly as this wrapper always has. Codex is NEVER installed unless the
+//                founder has explicitly chosen it — nothing OpenAI-specific ships or runs
+//                until then. (config.json is per-user, never bundled — see extraResources.)
+function readEngineChoice() {
+  try {
+    const cfg = path.join(os.homedir(), '.founders-office', 'config.json');
+    const raw = fs.readFileSync(cfg, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (parsed && (parsed.engine === 'codex' || parsed.engine === 'claude')) return parsed.engine;
+  } catch (_) {}
+  return null; // no valid choice yet
+}
+
+// Boot gate: ensure the CHOSEN engine's CLI is present. Returns the same
+// { installed, error } shape as the per-engine installers so boot() is engine-agnostic.
+// `label` is a founder-facing engine name for the OS-window retry screen copy.
+function ensureEngineInstalled(onProgress) {
+  const engine = readEngineChoice();
+  if (engine === 'codex') {
+    return ensureCodexInstalled(onProgress).then((r) => ({ ...r, engine: 'codex', label: 'the OpenAI engine' }));
+  }
+  // claude, or fresh/unchosen → Claude default (byte-identical to the original flow).
+  return ensureClaudeInstalled(onProgress).then((r) => ({ ...r, engine: 'claude', label: 'Claude Code' }));
+}
+
 // ---- Vercel CLI (deploy) resolution -----------------------------------------
 // Same "opened from Finder = minimal PATH" problem as claude, plus: on a fresh Mac
 // the `vercel` npm CLI may not be installed at all. We install it into an
@@ -271,6 +443,10 @@ function childEnv(extra) {
   const env = { ...process.env, PATH: fullPath };
   if (claudeBin) env.CLAUDE_BIN = claudeBin;
   if (vercelBin) env.VERCEL_BIN = vercelBin;
+  // codex.js spawns process.env.CODEX_BIN || 'codex' — hand it the resolved absolute
+  // bin so the OpenAI engine is findable from the Finder-launched (minimal-PATH) app.
+  const codexBin = resolveCodexBin();
+  if (codexBin) env.CODEX_BIN = codexBin;
   return { ...env, ...(extra || {}) };
 }
 
@@ -328,6 +504,47 @@ function seedVercelCli() {
     });
   } catch (e) {
     console.warn(`[seed-vercel] failed (app still boots): ${e && e.message}`);
+  }
+}
+
+// ---- First-run ENGINE RUNTIME provisioning ----------------------------------
+// FOUNDER DECISION (2026-09-22): the ~1.1 GB gstack runtime (browse binary + bun
+// + Chromium) is NOT bundled — it is fetched ONCE here on first launch so the DMG
+// stays small. The needs-engine skills' markdown already shipped via seedSkills();
+// this makes them actually EXECUTE. NON-BLOCKING + best-effort: runs in the
+// background, never delays boot, never breaks the 38 ships-as-is skills. Idempotent
+// (installEngineRuntime skips a matching install) and self-retrying (a failed
+// attempt writes a "retry" status and simply runs again next launch). Progress and
+// failure are surfaced via ~/.claude/.fleet-engine-status.json for the UI to poll.
+function seedEngineRuntime() {
+  try {
+    const dir = serverDir();
+    const modPath = path.join(dir, 'lib', 'install-skills.js');
+    if (!fs.existsSync(modPath)) { console.warn('[seed-engine] install-skills.js not found — skipping.'); return; }
+    const { installEngineRuntime, engineRuntimeStatus } = require(modPath);
+    if (engineRuntimeStatus().installed) { console.log('[seed-engine] runtime already present.'); return; }
+
+    // Run in a detached child so the multi-minute Chromium download never blocks the
+    // UI thread. We invoke the installer via Electron's own Node (ELECTRON_RUN_AS_NODE)
+    // with an inline bootstrap that hands git/bun an enriched PATH.
+    console.log('[seed-engine] setting up advanced tools in the background…');
+    const boot =
+      "const m=require(process.argv[1]);" +
+      "m.installEngineRuntime({onProgress:(msg,pct)=>console.log('[seed-engine] '+(pct||0)+'% '+msg)})" +
+      ".then(r=>{console.log('[seed-engine] result '+JSON.stringify(r));process.exit(r&&r.ok?0:1);})" +
+      ".catch(e=>{console.warn('[seed-engine] '+(e&&e.message));process.exit(1);});";
+    const child = spawn(process.execPath, ['-e', boot, modPath], {
+      cwd: dir,
+      env: childEnv({ ELECTRON_RUN_AS_NODE: '1' }),
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    try { child.stdout.on('data', (d) => process.stdout.write(`[seed-engine] ${d}`)); } catch (_) {}
+    try { child.stderr.on('data', (d) => process.stderr.write(`[seed-engine:err] ${d}`)); } catch (_) {}
+    child.on('error', (e) => console.warn(`[seed-engine] failed (app still runs): ${e && e.message}`));
+    child.on('exit', (code) => console.log(`[seed-engine] exited ${code} (retries next launch if it failed).`));
+  } catch (e) {
+    console.warn(`[seed-engine] failed (app still boots): ${e && e.message}`);
   }
 }
 
@@ -514,7 +731,7 @@ function createWindow() {
     height: 860,
     minWidth: 900,
     minHeight: 600,
-    title: 'Founders Office',
+    title: 'Antria',
     backgroundColor: '#F0EEE6',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -522,7 +739,7 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
-  win.setTitle('Founders Office');
+  win.setTitle('Antria');
   win.loadURL(loadingHtml());
 
   // Right-click menu with Cut/Copy/Paste, so clipboard works by mouse too
@@ -553,7 +770,8 @@ function createWindow() {
   });
 }
 
-function installRetryHtml(detail) {
+function installRetryHtml(detail, engineLabel) {
+  const label = engineLabel || 'Claude Code';
   return (
     'data:text/html;charset=utf-8,' +
     encodeURIComponent(`<!doctype html><html><head><meta charset="utf-8">
@@ -569,8 +787,8 @@ function installRetryHtml(detail) {
     font-size:13px;font-weight:600;padding:9px 16px;border-radius:8px;margin:0 6px}
   a.link{color:#6B6A65;font-size:12px}
 </style></head><body><div class="box">
-  <h1>Couldn't set up Claude Code</h1>
-  <p>Your team runs on Claude Code and we couldn't install it automatically.${detail ? ' ' + detail : ''}</p>
+  <h1>Couldn't set up ${label}</h1>
+  <p>Your team runs on ${label} and we couldn't install it automatically.${detail ? ' ' + detail : ''}</p>
   <p><a class="btn" href="#" onclick="try{window.nimishOffice.retryBoot()}catch(e){location.reload()};return false;">Try again</a></p>
   <p><a class="link" href="https://claude.com/claude-code" target="_blank" rel="noreferrer">Install it manually →</a></p>
 </div></body></html>`)
@@ -582,19 +800,23 @@ async function boot() {
 
   const already = await portListening();
   if (!already) {
-    // GATE: the team can only start once the Claude Code CLI is present. On a
-    // fresh machine (esp. Windows) this installs it first, showing progress.
-    const res = await ensureClaudeInstalled((msg) => {
+    // GATE: the team can only start once the CHOSEN engine's CLI is present. Which
+    // engine is read from ~/.founders-office/config.json (claude|codex; absent →
+    // Claude default). Existing users = Claude (unchanged). On a fresh machine (esp.
+    // Windows) this installs it first, showing progress. Codex is only ever installed
+    // when the founder has explicitly chosen the OpenAI engine.
+    const res = await ensureEngineInstalled((msg) => {
       try { if (win) win.loadURL(loadingHtml(msg)); } catch (_) {}
     });
     if (!win) return;
     if (!res.installed) {
-      console.warn(`[claude-install] not installed: ${res.error || 'unknown'}`);
-      win.loadURL(installRetryHtml('You can retry, or install it manually — then reopen.'));
+      console.warn(`[${res.engine || 'engine'}-install] not installed: ${res.error || 'unknown'}`);
+      win.loadURL(installRetryHtml('You can retry, or install it manually — then reopen.', res.label || 'Claude Code'));
       return;
     }
     seedSkills();
-    seedVercelCli();  // background, non-blocking — provisions the deploy CLI (login-only left)
+    seedVercelCli();     // background, non-blocking — provisions the deploy CLI (login-only left)
+    seedEngineRuntime(); // background, non-blocking — fetches gstack runtime (bun+Chromium) once
     startServer();
   } else {
     console.log('[office] port 4517 already in use — attaching to existing office.');
@@ -616,7 +838,7 @@ function buildMenu() {
   const template = [
     ...(isMac
       ? [{
-          label: 'Founders Office',
+          label: 'Antria',
           submenu: [
             { role: 'about' },
             { type: 'separator' },
@@ -788,6 +1010,19 @@ ipcMain.on('quit-and-install', () => {
     autoUpdater.quitAndInstall(false, true);
   } catch (e) {
     console.warn(`[update] quitAndInstall failed: ${e && e.message}`);
+  }
+});
+// One-click engine-switch restart. The office frontend (doOneClickRestart) calls the
+// injected hook window.nimishOffice.relaunchApp() after /api/app/restart returns
+// mode:'electron'; we own the process lifecycle, so relaunch the whole app. killServer
+// runs on the ensuing quit (before-quit/quit), stopping the bundled engine cleanly, and
+// the fresh boot() re-reads config.json → installs/attaches the newly-chosen engine.
+ipcMain.on('relaunch-app', () => {
+  try {
+    app.relaunch();
+    app.exit(0);
+  } catch (e) {
+    console.warn(`[relaunch] failed: ${e && e.message}`);
   }
 });
 

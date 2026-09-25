@@ -1,8 +1,8 @@
 {
   "name": "nimish-office",
-  "productName": "Founders Office",
-  "version": "0.1.2",
-  "description": "Founders Office — a delightful founder's office over Claude Code.",
+  "productName": "Antria",
+  "version": "0.2.2",
+  "description": "Antria \u2014 a delightful founder's office over Claude Code.",
   "author": "The Founder <nmehta@bookr.inc>",
   "private": true,
   "main": "main.js",
@@ -21,9 +21,9 @@
   },
   "build": {
     "appId": "inc.bookr.nimishoffice",
-    "productName": "Founders Office",
+    "productName": "Antria",
     "directories": {
-      "output": "dist",
+      "output": "dist/${version}",
       "buildResources": "build"
     },
     "afterPack": "build/afterPack.js",
@@ -31,7 +31,7 @@
       {
         "provider": "github",
         "owner": "nimishmehta",
-        "repo": "founders-office"
+        "repo": "antria-ai"
       }
     ],
     "files": [
@@ -113,7 +113,8 @@
       "notarize": true
     },
     "dmg": {
-      "title": "Founders Office"
+      "title": "Antria",
+      "artifactName": "Antria-universal.${ext}"
     },
     "win": {
       "target": [
@@ -131,7 +132,7 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "perMachine": false,
-      "artifactName": "${productName}-${version}.${ext}"
+      "artifactName": "Antria-Setup.${ext}"
     }
   }
 }
