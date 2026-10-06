@@ -106,6 +106,7 @@
       "category": "public.app-category.productivity",
       "icon": "build/icon.icns",
       "identity": "Nimish Mehta (QFH65RZ2JG)",
+      "signIgnore": ["/vendor/.*\\.(woff2|woff|ttf|otf|eot)$"],
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
