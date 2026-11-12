@@ -1,7 +1,7 @@
 {
   "name": "nimish-office",
   "productName": "Antria",
-  "version": "0.2.4",
+  "version": "0.2.7",
   "description": "Antria \u2014 a delightful founder's office over Claude Code.",
   "author": "The Founder <nmehta@bookr.inc>",
   "private": true,

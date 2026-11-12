@@ -252,9 +252,18 @@ function ensureClaudeInstalled(onProgress) {
 // we resolve the absolute bin and pass CODEX_BIN (mirrors CLAUDE_BIN).
 const CODEX_PIN = '0.153.4';
 
-// Absolute `codex` if resolvable on the enriched PATH (npm-global drops it there).
-// '' if nowhere — the server then reports needs-install honestly.
+// App-managed, user-writable dir for the standalone Codex binary (no npm/Node, no sudo).
+// Mirrors vercelInstallDir — survives app updates, shared with the office server + codex.js
+// (lib/codex-install.js uses the IDENTICAL path, so a server-side on-demand install and this
+// wrapper resolve the same binary).
+function codexManagedDir() { return path.join(os.homedir(), '.claude', 'local', 'office-codex', 'bin'); }
+function codexManagedBin() { return path.join(codexManagedDir(), process.platform === 'win32' ? 'codex.exe' : 'codex'); }
+
+// Absolute `codex`: our app-managed standalone install WINS (works on a no-npm/no-Node Mac),
+// else scan the enriched PATH (npm-global drops it there). '' if nowhere — the server then
+// provisions on demand or reports needs-install honestly.
 function resolveCodexBin() {
+  try { const ours = codexManagedBin(); if (fs.existsSync(ours)) return ours; } catch (_) {}
   const { PATH } = resolveShellPathAndClaude();
   const names = process.platform === 'win32' ? ['codex.cmd', 'codex.exe', 'codex'] : ['codex'];
   for (const dir of (PATH || '').split(path.delimiter)) {
@@ -262,6 +271,48 @@ function resolveCodexBin() {
     for (const n of names) { try { const c = path.join(dir, n); if (fs.existsSync(c)) return c; } catch (_) {} }
   }
   return '';
+}
+
+// GitHub release asset for this platform/arch (standalone Codex binary). '' if unsupported.
+function codexAssetName() {
+  const p = process.platform, a = process.arch;
+  if (p === 'darwin') return a === 'arm64' ? 'codex-aarch64-apple-darwin.tar.gz' : 'codex-x86_64-apple-darwin.tar.gz';
+  if (p === 'linux') return a === 'arm64' ? 'codex-aarch64-unknown-linux-gnu.tar.gz' : 'codex-x86_64-unknown-linux-gnu.tar.gz';
+  if (p === 'win32') return a === 'arm64' ? 'codex-aarch64-pc-windows-msvc.exe' : 'codex-x86_64-pc-windows-msvc.exe';
+  return '';
+}
+
+// Download the pinned STANDALONE Codex binary (no npm, no Node) into our managed dir,
+// extract, mark executable, and clear the macOS Gatekeeper quarantine. Electron's main
+// process has global fetch (follows redirects); tar ships on macOS/Linux and Win10+.
+async function downloadCodexBinary(onProgress) {
+  const asset = codexAssetName();
+  if (!asset) return { ok: false, error: `Codex isn't available for ${process.platform}/${process.arch}.` };
+  const dir = codexManagedDir();
+  try { fs.mkdirSync(dir, { recursive: true }); } catch (e) { return { ok: false, error: e.message }; }
+  const finalBin = codexManagedBin();
+  const urlStr = `https://github.com/openai/codex/releases/download/rust-v${CODEX_PIN}/${asset}`;
+  try {
+    onProgress && onProgress('Downloading the ChatGPT image engine… (one-time, ~90 MB)');
+    const res = await fetch(urlStr, { redirect: 'follow' });
+    if (!res || !res.ok) return { ok: false, error: `download HTTP ${res && res.status}` };
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (!buf || buf.length < 1000000) return { ok: false, error: 'download incomplete' };
+    if (process.platform === 'win32') {
+      fs.writeFileSync(finalBin, buf);
+    } else {
+      const tgz = path.join(dir, 'codex-dl.tar.gz');
+      fs.writeFileSync(tgz, buf);
+      const r = spawnSync('tar', ['xzf', tgz, '-C', dir], { encoding: 'utf8', timeout: 120000 });
+      if (!r || r.status !== 0) return { ok: false, error: 'extract failed: ' + ((r && r.stderr) || '').slice(-200) };
+      const extracted = path.join(dir, asset.replace(/\.tar\.gz$/, ''));
+      try { if (fs.existsSync(extracted)) fs.renameSync(extracted, finalBin); } catch (e) { return { ok: false, error: 'rename failed: ' + e.message }; }
+      try { fs.unlinkSync(tgz); } catch (_) {}
+    }
+    try { fs.chmodSync(finalBin, 0o755); } catch (_) {}
+    if (process.platform === 'darwin') { try { spawnSync('xattr', ['-dr', 'com.apple.quarantine', finalBin], { timeout: 8000 }); } catch (_) {} }
+    return { ok: true, bin: finalBin };
+  } catch (e) { return { ok: false, error: e.message }; }
 }
 
 // Installed codex version as a [major,minor,patch] triple, or null if it can't be
@@ -666,6 +717,51 @@ function seedSkills() {
   }
 }
 
+// ── Results Gate: HTML render bridge ──────────────────────────────────────
+// The server runs as ELECTRON_RUN_AS_NODE (plain Node — no BrowserWindow), so the
+// Results Gate's HTML check can't open a window itself. This tiny loopback HTTP server,
+// living in Electron MAIN, renders a local HTML file in a hidden offscreen window and
+// returns its console errors + broken images. The server reaches it via GATE_RENDER_URL.
+let renderBridge = null, renderBridgePort = 0;
+function startRenderBridge() {
+  if (renderBridge) return Promise.resolve(renderBridgePort);
+  return new Promise((resolve) => {
+    renderBridge = http.createServer((req, res) => {
+      if (req.method !== 'POST') { res.writeHead(405); res.end(); return; }
+      let body = '';
+      req.on('data', (d) => { body += d; if (body.length > 1e6) req.destroy(); });
+      req.on('end', async () => {
+        let filePath = '';
+        try { filePath = String((JSON.parse(body || '{}') || {}).filePath || ''); } catch { /* */ }
+        const out = { consoleErrors: [], brokenImages: [] };
+        if (!filePath) { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(out)); return; }
+        let w = null;
+        const done = (payload) => { try { if (w) w.destroy(); } catch (_) {} res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(payload)); };
+        try {
+          w = new BrowserWindow({ show: false, webPreferences: { offscreen: true, javascript: true, sandbox: true, contextIsolation: true } });
+          w.webContents.on('console-message', (_e, level, message) => { if (level >= 2) out.consoleErrors.push(String(message)); });
+          w.webContents.on('render-process-gone', (_e, d) => out.consoleErrors.push('render-gone: ' + (d && d.reason)));
+          const guard = setTimeout(() => done(out), 15000);
+          await w.loadFile(filePath);
+          try {
+            const broken = await w.webContents.executeJavaScript(
+              'Array.from(document.images).filter(function(i){return !i.complete||i.naturalWidth===0;}).map(function(i){return i.currentSrc||i.src;})'
+            );
+            if (Array.isArray(broken)) out.brokenImages = broken;
+          } catch (_) { /* no images / eval blocked */ }
+          clearTimeout(guard); done(out);
+        } catch (e) { out.consoleErrors.push('load-failed: ' + (e && e.message || e)); done(out); }
+      });
+    });
+    renderBridge.listen(0, '127.0.0.1', () => {
+      renderBridgePort = renderBridge.address().port;
+      console.log('[office] gate render bridge on 127.0.0.1:' + renderBridgePort);
+      resolve(renderBridgePort);
+    });
+    renderBridge.on('error', () => resolve(0));
+  });
+}
+
 function startServer() {
   const dir = serverDir();
   const serverPath = path.join(dir, 'server.js');
@@ -675,6 +771,13 @@ function startServer() {
     env: childEnv({
       ELECTRON_RUN_AS_NODE: '1',
       PORT: String(PORT),
+      GATE_RENDER_URL: renderBridgePort ? ('http://127.0.0.1:' + renderBridgePort + '/render') : '',
+      // Authoritative app version (from desktop/package.json via electron-builder) so the
+      // office header shows the REAL shipped version and never drifts from the installed app.
+      ANTRIA_APP_VERSION: app.getVersion(),
+      // Live "Team Work" box: turn the activity feature ON in the packaged app (the flag
+      // defaults OFF in code so tests can assert flag-off behavior). Override with FO_ACTIVITY=0.
+      FO_ACTIVITY: process.env.FO_ACTIVITY || '1',
     }),
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -817,6 +920,7 @@ async function boot() {
     seedSkills();
     seedVercelCli();     // background, non-blocking — provisions the deploy CLI (login-only left)
     seedEngineRuntime(); // background, non-blocking — fetches gstack runtime (bun+Chromium) once
+    try { await startRenderBridge(); } catch (_) { /* gate HTML check degrades to amber without it */ }
     startServer();
   } else {
     console.log('[office] port 4517 already in use — attaching to existing office.');

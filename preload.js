@@ -6,7 +6,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('nimishOffice', {
   desktop: true,
-  version: '0.2.2',
+  version: '0.2.7',
   // Fires when the Electron updater has downloaded a new version and it's ready
   // to install. cb receives { ready:true, version }.
   onUpdateReady: (cb) => {
